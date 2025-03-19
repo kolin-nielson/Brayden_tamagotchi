@@ -12,6 +12,14 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "plugins": [
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Allow Project2 to access your device motion and orientation"
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true
     },
