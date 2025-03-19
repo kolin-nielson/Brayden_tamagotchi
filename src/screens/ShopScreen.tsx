@@ -281,11 +281,11 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, { backgroundColor: theme.colors.elevation.level3 }]}>
           <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: theme.colors.text, fontWeight: 'bold' }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.onSurface, fontWeight: 'bold' }]}>
               {item.name}
             </Text>
             <TouchableOpacity onPress={onClose}>
-              <MaterialCommunityIcons name="close" size={24} color={theme.colors.text} />
+              <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
             </TouchableOpacity>
           </View>
           
@@ -297,11 +297,11 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             {item.rarity.charAt(0).toUpperCase() + item.rarity.slice(1)}
           </Text>
           
-          <Text style={[styles.itemSlotText, { color: theme.colors.text, opacity: 0.8 }]}>
+          <Text style={[styles.itemSlotText, { color: theme.colors.onSurfaceVariant, opacity: 0.8 }]}>
             Slot: {item.slot.charAt(0).toUpperCase() + item.slot.slice(1)}
           </Text>
           
-          <Text style={[styles.itemDescription, { color: theme.colors.text }]}>
+          <Text style={[styles.itemDescription, { color: theme.colors.onSurface }]}>
             {item.description}
           </Text>
           
@@ -327,7 +327,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   size={18} 
                   color={rarityColor} 
                 />
-                <Text style={[styles.statBonusText, { color: theme.colors.text }]}>
+                <Text style={[styles.statBonusText, { color: theme.colors.onSurface }]}>
                   +{item.statBonus.value}% {' '}
                   {item.statBonus.type === 'work_efficiency' ? 'Work Efficiency' :
                    item.statBonus.type === 'play_boost' ? 'Play Happiness' :
@@ -345,7 +345,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
           
           <View style={styles.priceContainer}>
             <MaterialCommunityIcons name="cash" size={24} color={theme.colors.success} />
-            <Text style={[styles.priceText, { color: theme.colors.text, fontWeight: 'bold' }]}>
+            <Text style={[styles.priceText, { color: theme.colors.onSurface, fontWeight: 'bold' }]}>
               {item.price}
             </Text>
           </View>
@@ -427,7 +427,7 @@ const ShopScreen = () => {
                       text: 'Equip', 
                       onPress: () => {
                         console.log(`Attempting to equip item after purchase: ${selectedItem.id}`);
-                        const equipResult = purchaseCollectible(selectedItem.id, true);
+                        const equipResult = equipCosmetic(selectedItem.id);
                         console.log(`Equip result: ${equipResult ? 'success' : 'failed'}`);
                       }
                     }
@@ -496,7 +496,7 @@ const ShopScreen = () => {
         style={[
           styles.shopItem,
           { 
-            backgroundColor: theme.colors.cardBackground,
+            backgroundColor: theme.colors.surface,
             borderColor: owned ? theme.colors.success : rarityColor,
           }
         ]}
@@ -512,11 +512,11 @@ const ShopScreen = () => {
         </View>
         
         <View style={styles.shopItemInfo}>
-          <Text style={[styles.shopItemName, { color: theme.colors.text }]}>
+          <Text style={[styles.shopItemName, { color: theme.colors.onSurface }]}>
             {item.name}
           </Text>
           <Text 
-            style={[styles.shopItemDescription, { color: theme.colors.textSecondary }]}
+            style={[styles.shopItemDescription, { color: theme.colors.onSurfaceVariant }]}
             numberOfLines={2}
           >
             {item.description}
@@ -538,7 +538,7 @@ const ShopScreen = () => {
               </Text>
             </View>
             
-            <Text style={[styles.slotTag, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles.slotTag, { color: theme.colors.onSurfaceVariant }]}>
               {item.slot}
             </Text>
           </View>
@@ -560,18 +560,19 @@ const ShopScreen = () => {
       ].map((item) => (
         <View key={`filter-${item.key}`}>
           <TouchableOpacity
+            key={`filter-btn-${item.key}`}
             style={[
               styles.filterButton, 
               { 
                 backgroundColor: filter === item.key 
                   ? theme.colors.primary 
-                  : theme.colors.cardBackground
+                  : theme.colors.surface
               }
             ]}
             onPress={() => setFilter(item.key as any)}
           >
             <Text style={{ 
-              color: filter === item.key ? 'white' : theme.colors.text 
+              color: filter === item.key ? 'white' : theme.colors.onSurface 
             }}>
               {item.label}
             </Text>
@@ -585,7 +586,7 @@ const ShopScreen = () => {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.balanceContainer}>
         <MaterialCommunityIcons name="cash-multiple" size={24} color={theme.colors.success} />
-        <Text style={[styles.balanceText, { color: theme.colors.text }]}>
+        <Text style={[styles.balanceText, { color: theme.colors.onBackground }]}>
           Balance: ${stats.money}
         </Text>
       </View>

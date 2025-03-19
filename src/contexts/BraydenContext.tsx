@@ -86,10 +86,10 @@ interface BraydenContextType {
 }
 
 const DEFAULT_STATS: BraydenStats = {
-  hunger: 80,
-  happiness: 80,
-  energy: 100,
-  money: 50,
+  hunger: 65, // Start with lower hunger
+  happiness: 75,
+  energy: 90,
+  money: 40, // Start with less money
   isAwake: true,
   isDizzy: false,
   lastUpdated: Date.now(),
@@ -323,32 +323,38 @@ const createRandomEvents = (context: any): RandomEvent[] => [
   },
 ];
 
-// Mini-games
+// Mini-game definitions with updated rewards and costs
 const MINI_GAMES = {
   codeRacer: {
-    name: 'Code Racer',
-    description: 'Type code as fast as you can to earn XP and money',
     rewards: {
       xp: 50,
       money: 25,
+    },
+    costs: {
+      energy: 15,
+      hunger: 10,
     }
   },
   bugSquasher: {
-    name: 'Bug Squasher',
-    description: 'Tap bugs before they corrupt your code',
     rewards: {
       xp: 40,
       energy: 15,
+    },
+    costs: {
+      energy: 10,
+      hunger: 12,
     }
   },
   memoryMatch: {
-    name: 'Memory Match',
-    description: 'Match programming languages with their logos',
     rewards: {
       xp: 30,
       happiness: 20,
+    },
+    costs: {
+      energy: 8,
+      hunger: 8,
     }
-  },
+  }
 };
 
 // Add a complete list of all shop items
@@ -842,17 +848,31 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Only apply changes if Brayden is awake
       if (stats.isAwake) {
         setStats(prevStats => {
-          // Calculate new stat values
-          const newHunger = Math.max(0, prevStats.hunger - 5 * hoursPassed);
-          const newHappiness = Math.max(0, prevStats.happiness - 4 * hoursPassed);
-          const newEnergy = Math.max(0, prevStats.energy - 4 * hoursPassed);
+          // Calculate new stat values when awake
+          let newHunger = Math.max(0, prevStats.hunger - 10 * hoursPassed);
+          let newHappiness = Math.max(0, prevStats.happiness - 4 * hoursPassed);
+          let newEnergy = Math.max(0, prevStats.energy - 4 * hoursPassed);
           
           // Calculate health based on other stats
           let healthChange = 0;
           
           // Health decreases when hunger is critical (below 20)
           if (newHunger < 20) {
-            healthChange -= (20 - newHunger) * 0.1 * hoursPassed;
+            healthChange -= (20 - newHunger) * 0.2 * hoursPassed; // Double the health penalty
+          }
+          
+          // Add energy penalty when hungry
+          if (newHunger < 30) {
+            // When very hungry, energy depletes faster
+            const energyPenalty = Math.min(5, (30 - newHunger) * 0.2) * hoursPassed;
+            newEnergy = Math.max(0, newEnergy - energyPenalty);
+          }
+          
+          // Add happiness penalty when hungry
+          if (newHunger < 25) {
+            // When hungry, happiness decreases faster
+            const happinessPenalty = Math.min(3, (25 - newHunger) * 0.15) * hoursPassed;
+            newHappiness = Math.max(0, newHappiness - happinessPenalty);
           }
           
           // Health decreases when happiness is critical (below 15)
@@ -916,9 +936,9 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } else {
         // Brayden recovers energy while sleeping
         setStats(prevStats => {
-          // Calculate new stat values
+          // Calculate new stat values when sleeping
           const newEnergy = Math.min(100, prevStats.energy + 15 * hoursPassed);
-          const newHunger = Math.max(0, prevStats.hunger - 2 * hoursPassed);
+          const newHunger = Math.max(0, prevStats.hunger - 5 * hoursPassed);
           const newHappiness = Math.max(0, prevStats.happiness - 1 * hoursPassed);
           
           // Calculate health based on other stats
@@ -926,7 +946,7 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
           
           // Health decreases when hunger is critical (below 20)
           if (newHunger < 20) {
-            healthChange -= (20 - newHunger) * 0.05 * hoursPassed;
+            healthChange -= (20 - newHunger) * 0.2 * hoursPassed; // Double the health penalty
           }
           
           // Health decreases slower when sleeping
@@ -1017,10 +1037,9 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
         
         setStats(prevStats => ({
           ...prevStats,
-          // Faster energy recovery with fast-forward
+          // Fast-forward simulation
           energy: Math.min(100, prevStats.energy + 20 * simulatedHoursPassed),
-          // Slower stat decay when fast-forwarding
-          hunger: Math.max(0, prevStats.hunger - 2 * simulatedHoursPassed),
+          hunger: Math.max(0, prevStats.hunger - 8 * simulatedHoursPassed),
           happiness: Math.max(0, prevStats.happiness - 1 * simulatedHoursPassed),
           lastUpdated: Date.now(),
         }));
@@ -1234,10 +1253,19 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Play mini-game function
   const playMiniGame = (gameType: string) => {
+    if (!stats.isAwake || stats.isDizzy || stats.isDead) return;
+    
     // In a real app, this would navigate to a mini-game screen
     // For now, we'll just simulate rewards based on the game type
     const game = MINI_GAMES[gameType as keyof typeof MINI_GAMES];
     if (game) {
+      // Apply costs
+      setStats(prev => ({
+        ...prev,
+        energy: Math.max(0, prev.energy - (game.costs?.energy || 0)),
+        hunger: Math.max(0, prev.hunger - (game.costs?.hunger || 0)),
+      }));
+      
       // Simulate a successful game and provide rewards
       setStats(prev => ({
         ...prev,
@@ -1247,7 +1275,9 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }));
       
       // Update total money earned
-      setTotalMoneyEarned((prev: number) => prev + (game.rewards.money || 0));
+      if (game.rewards.money) {
+        setTotalMoneyEarned((prev: number) => prev + (game.rewards.money || 0));
+      }
       
       // Give XP for playing game
       gainExperience(game.rewards.xp || 10);
@@ -1259,13 +1289,13 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     setStats(prevStats => ({
       ...prevStats,
-      // Increased hunger replenishment
-      hunger: Math.min(100, prevStats.hunger + 30),
-      // Reduced cost to feed
-      money: Math.max(0, prevStats.money - 3),
+      // Reduced hunger replenishment
+      hunger: Math.min(100, prevStats.hunger + 20),
+      // Increased cost to feed
+      money: Math.max(0, prevStats.money - 5),
     }));
     
-    // Increased XP for feeding
+    // Same XP for feeding
     gainExperience(15);
   };
 
@@ -1274,13 +1304,15 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     setStats(prevStats => ({
       ...prevStats,
-      // Increased happiness boost
+      // Same happiness boost
       happiness: Math.min(100, prevStats.happiness + 25),
-      // Same energy cost
-      energy: Math.max(0, prevStats.energy - 10),
+      // Increased energy cost
+      energy: Math.max(0, prevStats.energy - 15),
+      // Also costs hunger now
+      hunger: Math.max(0, prevStats.hunger - 5),
     }));
     
-    // Increased XP for playing
+    // Same XP for playing
     gainExperience(20);
   };
 
@@ -1291,18 +1323,20 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     setStats(prevStats => ({
       ...prevStats,
-      // Increased money earnings
+      // Same money earnings
       money: prevStats.money + moneyEarned,
-      // Same energy cost
-      energy: Math.max(0, prevStats.energy - 15),
-      // Reduced happiness cost
-      happiness: Math.max(0, prevStats.happiness - 3),
+      // Increased energy cost
+      energy: Math.max(0, prevStats.energy - 20),
+      // Increased happiness cost
+      happiness: Math.max(0, prevStats.happiness - 5),
+      // Also costs hunger now
+      hunger: Math.max(0, prevStats.hunger - 8),
     }));
     
     // Update total money earned
     setTotalMoneyEarned((prev: number) => prev + moneyEarned);
     
-    // Increased XP for working
+    // Same XP for working
     gainExperience(25);
   };
 
@@ -1413,12 +1447,9 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Inner private function for equipping which assumes the item is already owned
   const _equipCosmetic = (id: string): boolean => {
-    console.log(`Directly equipping cosmetic with id: ${id}`);
-    
     // Find the collectible
     const cosmetic = collectibles.find(c => c.id === id);
     if (!cosmetic || !cosmetic.slot) {
-      console.log('Cannot equip: cosmetic not found or missing slot');
       return false;
     }
     
@@ -1444,24 +1475,18 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ...prev,
         [cosmetic.slot]: cosmetic,
       };
-      console.log('New equipped cosmetics state:', newState);
       return newState;
     });
     
-    console.log(`Successfully equipped ${cosmetic.name} in slot ${cosmetic.slot}`);
     return true;
   };
   
   // Public function that checks if owned first
   const equipCosmetic = (id: string): boolean => {
-    console.log(`Attempting to equip cosmetic with id: ${id}`);
-    
     // Find the collectible
     const cosmetic = collectibles.find(c => c.id === id);
-    console.log('Found cosmetic:', cosmetic);
     
     if (!cosmetic || !cosmetic.isOwned || !cosmetic.slot) {
-      console.log('Cannot equip: cosmetic not found or not owned or missing slot');
       return false;
     }
     

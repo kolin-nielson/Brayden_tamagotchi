@@ -306,6 +306,24 @@ const HomeScreen: React.FC = () => {
               ${stats.money}
             </Text>
           </View>
+          
+          {/* Experience display */}
+          <View style={styles.experienceContainer}>
+            <Text style={[styles.experienceText, { color: theme.colors.onBackground }]}>
+              Level {stats.level} - XP: {stats.experience}/{stats.level * 100}
+            </Text>
+            <View style={styles.experienceBar}>
+              <View 
+                style={[
+                  styles.experienceFill, 
+                  { 
+                    width: `${getLevelProgress()}%`,
+                    backgroundColor: theme.colors.primary 
+                  }
+                ]} 
+              />
+            </View>
+          </View>
         </Surface>
         
         {/* Actions section */}
@@ -356,8 +374,8 @@ const HomeScreen: React.FC = () => {
               disabled={!stats.isAwake || stats.energy < 5}
             >
               <MaterialCommunityIcons name="keyboard" size={28} color={theme.colors.primary} />
-              <Text style={styles.miniGameTitle}>Code Racer</Text>
-              <Text style={styles.miniGameReward}>+$25, +50 XP</Text>
+              <Text style={[styles.miniGameTitle, { color: theme.colors.onBackground }]}>Code Racer</Text>
+              <Text style={[styles.miniGameReward, { color: theme.colors.onSurfaceVariant }]}>+$25, +50 XP</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -366,8 +384,8 @@ const HomeScreen: React.FC = () => {
               disabled={!stats.isAwake || stats.energy < 5}
             >
               <MaterialCommunityIcons name="bug" size={28} color={theme.colors.secondary} />
-              <Text style={styles.miniGameTitle}>Bug Squasher</Text>
-              <Text style={styles.miniGameReward}>+15 Energy, +40 XP</Text>
+              <Text style={[styles.miniGameTitle, { color: theme.colors.onBackground }]}>Bug Squasher</Text>
+              <Text style={[styles.miniGameReward, { color: theme.colors.onSurfaceVariant }]}>+15 Energy, +40 XP</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -376,8 +394,8 @@ const HomeScreen: React.FC = () => {
               disabled={!stats.isAwake || stats.energy < 5}
             >
               <MaterialCommunityIcons name="cards" size={28} color={theme.colors.tertiary} />
-              <Text style={styles.miniGameTitle}>Memory Match</Text>
-              <Text style={styles.miniGameReward}>+20 Happiness, +30 XP</Text>
+              <Text style={[styles.miniGameTitle, { color: theme.colors.onBackground }]}>Memory Match</Text>
+              <Text style={[styles.miniGameReward, { color: theme.colors.onSurfaceVariant }]}>+20 Happiness, +30 XP</Text>
             </TouchableOpacity>
           </View>
         </Surface>
@@ -450,6 +468,29 @@ const styles = StyleSheet.create({
   moneyText: {
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  experienceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
+  },
+  experienceText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  experienceBar: {
+    flex: 1,
+    height: 10,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 5,
+    marginLeft: 10,
+  },
+  experienceFill: {
+    height: '100%',
+    borderRadius: 5,
   },
   buttonsContainer: {
     marginTop: 8,

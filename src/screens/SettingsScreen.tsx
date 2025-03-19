@@ -89,15 +89,15 @@ const SettingsScreen: React.FC = () => {
           <List.Subheader>Game Settings</List.Subheader>
           
           <List.Item
-            title="Light Sensor"
-            description="Used to detect when Brayden should sleep"
-            left={(props) => <List.Icon {...props} icon="brightness-6" color={theme.colors.primary} />}
-          />
-          
-          <List.Item
             title="Activity History"
             description="View and manage Brayden's activity log"
             left={(props) => <List.Icon {...props} icon="history" color={theme.colors.primary} />}
+          />
+          
+          <List.Item
+            title="Notifications"
+            description="Customize in-game notifications"
+            left={(props) => <List.Icon {...props} icon="bell-outline" color={theme.colors.primary} />}
           />
         </List.Section>
         
@@ -147,7 +147,7 @@ const SettingsScreen: React.FC = () => {
         
         <View style={styles.footer}>
           <Text variant="bodySmall" style={styles.footerText}>
-            Made with <MaterialCommunityIcons name="heart" size={12} color={theme.colors.error} /> by You
+            Made with <MaterialCommunityIcons name="heart" size={12} color={theme.colors.error} /> by Kolin
           </Text>
         </View>
       </ScrollView>

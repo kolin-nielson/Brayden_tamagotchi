@@ -27,6 +27,11 @@ const CustomLightTheme = {
     background: '#F5F5F5',
     surface: '#FFFFFF',
     onSurface: '#212121',
+    text: '#212121',
+    textSecondary: '#757575',
+    cardBackground: '#FFFFFF',
+    border: '#E0E0E0',
+    disabled: '#BDBDBD',
   },
 };
 
@@ -39,6 +44,11 @@ const CustomDarkTheme = {
     background: '#121212',
     surface: '#1E1E1E',
     onSurface: '#E0E0E0',
+    text: '#E0E0E0',
+    textSecondary: '#AAAAAA',
+    cardBackground: '#1E1E1E',
+    border: '#333333',
+    disabled: '#555555',
   },
 };
 

@@ -306,11 +306,11 @@ const ActivityScreen = () => {
         </View>
         
         <View style={styles.activityContent}>
-          <Text style={[styles.activityTitle, { color: theme.colors.text }]}>
+          <Text style={[styles.activityTitle, { color: theme.colors.onBackground }]}>
             {activity.title}
           </Text>
           
-          <Text style={[styles.activityDescription, { color: theme.colors.textSecondary }]} numberOfLines={2}>
+          <Text style={[styles.activityDescription, { color: theme.colors.onSurfaceVariant }]} numberOfLines={2}>
             {activity.description}
           </Text>
           
@@ -323,15 +323,15 @@ const ActivityScreen = () => {
             </View>
             
             <View style={styles.activityDetail}>
-              <MaterialCommunityIcons name="lightning-bolt" size={16} color={theme.colors.secondary} />
-              <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
+              <MaterialCommunityIcons name="lightning-bolt" size={16} color={theme.colors.onSurfaceVariant} />
+              <Text style={[styles.detailText, { color: theme.colors.onSurfaceVariant }]}>
                 -{activity.energyCost}
               </Text>
             </View>
             
             <View style={styles.activityDetail}>
-              <MaterialCommunityIcons name="clock-outline" size={16} color={theme.colors.textSecondary} />
-              <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
+              <MaterialCommunityIcons name="clock-outline" size={16} color={theme.colors.onSurfaceVariant} />
+              <Text style={[styles.detailText, { color: theme.colors.onSurfaceVariant }]}>
                 {activity.timeCost}m
               </Text>
             </View>
@@ -352,52 +352,41 @@ const ActivityScreen = () => {
     <View style={styles.header}>
       <View style={styles.statsOverview}>
         <View style={styles.statRow}>
-          <Text style={[styles.statLabel, { color: theme.colors.text }]}>Level:</Text>
+          <Text style={[styles.statLabel, { color: theme.colors.onSurface }]}>Level:</Text>
           <Text style={[styles.statValue, { color: theme.colors.primary }]}>{stats.level}</Text>
         </View>
         
-        <View style={styles.levelBarContainer}>
-          <View 
-            style={[
-              styles.levelBarFill, 
-              { 
-                width: `${getLevelProgress()}%`,
-                backgroundColor: theme.colors.primary 
-              }
-            ]} 
-          />
-          <Text style={styles.levelBarText}>
-            {stats.experience}/{stats.level * 100} XP
-          </Text>
+        <View style={styles.statRow}>
+          <Text style={[styles.statLabel, { color: theme.colors.onSurface }]}>XP:</Text>
+          <Text style={[styles.statValue, { color: theme.colors.primary }]}>{stats.experience} / {stats.level * 100}</Text>
         </View>
         
-        <View style={styles.streakContainer}>
-          <MaterialCommunityIcons name="calendar-check" size={20} color={theme.colors.primary} />
-          <Text style={[styles.streakText, { color: theme.colors.text }]}>
-            {stats.streak} day{stats.streak !== 1 ? 's' : ''} streak
-          </Text>
+        <View style={styles.statRow}>
+          <Text style={[styles.statLabel, { color: theme.colors.onSurface }]}>Money:</Text>
+          <Text style={[styles.statValue, { color: theme.colors.success }]}>${stats.money}</Text>
         </View>
+
+        <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+          Available Activities
+        </Text>
+        
+        <ScrollView 
+          horizontal={true} 
+          showsHorizontalScrollIndicator={false}
+          style={styles.activitiesScrollView}
+          contentContainerStyle={styles.activitiesContainer}
+        >
+          {moneyActivities.map((activity) => (
+            <React.Fragment key={activity.id}>
+              {renderMoneyActivity(activity)}
+            </React.Fragment>
+          ))}
+        </ScrollView>
+        
+        <Text style={[styles.sectionTitle, { color: theme.colors.onSurface, marginTop: 24 }]}>
+          Activity History
+        </Text>
       </View>
-      
-      {/* Money Making section */}
-      <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 16 }]}>
-        Money Making Activities
-      </Text>
-      
-      <ScrollView 
-        horizontal={true} 
-        showsHorizontalScrollIndicator={false}
-        style={styles.activitiesScrollView}
-        contentContainerStyle={styles.activitiesContainer}
-      >
-        {moneyActivities.map((activity) => (
-          renderMoneyActivity(activity)
-        ))}
-      </ScrollView>
-      
-      <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 24 }]}>
-        Activity History
-      </Text>
     </View>
   );
   

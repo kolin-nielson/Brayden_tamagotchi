@@ -58,6 +58,7 @@ const WardrobeScreen: React.FC = () => {
             >
               <Text style={[
                 styles.categoryText,
+                { color: theme.colors.onBackground },
                 selectedCategory === category && { color: 'white' }
               ]}>
                 {category.charAt(0).toUpperCase() + category.slice(1)}
@@ -77,6 +78,10 @@ const WardrobeScreen: React.FC = () => {
       <TouchableOpacity 
         style={[
           styles.cosmeticItem, 
+          { 
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border 
+          },
           isEquipped && { 
             borderColor: theme.colors.primary,
             backgroundColor: `${theme.colors.primary}20`,
@@ -109,7 +114,7 @@ const WardrobeScreen: React.FC = () => {
             </View>
           )}
         </View>
-        <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+        <Text style={[styles.itemName, { color: theme.colors.onSurface }]} numberOfLines={1}>{item.name}</Text>
         
         <View style={[styles.rarityBadge, getRarityStyle(item.rarity)]}>
           <Text style={styles.rarityText}>{item.rarity}</Text>

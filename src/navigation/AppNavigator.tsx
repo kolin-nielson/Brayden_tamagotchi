@@ -14,6 +14,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import ShopScreen from '../screens/ShopScreen';
 import WardrobeScreen from '../screens/WardrobeScreen';
 import MiniGameScreen, { MiniGameParams } from '../screens/MiniGameScreen';
+import HistoryScreen from '../screens/HistoryScreen';
 
 // Define the types for our navigation
 export type RootStackParamList = {
@@ -27,6 +28,7 @@ export type MainTabParamList = {
   Wardrobe: undefined;
   Activity: undefined;
   Settings: undefined;
+  History: undefined;
 };
 
 // Combine all params
@@ -158,6 +160,15 @@ const MainTabs = () => {
         options={{
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="chart-line" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen 
+        name="History" 
+        component={HistoryScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="history" color={color} size={size} />
           ),
         }}
       />

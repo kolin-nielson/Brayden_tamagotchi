@@ -107,8 +107,9 @@ const CodeRacerGame = ({ onComplete }: { onComplete: (score: number) => void }) 
       <Text style={[styles.gameTitle, { color: theme.colors.primary }]}>Code Racer</Text>
       
       <View style={styles.statsRow}>
-        <Text style={styles.statText}>Time: {timeLeft}s</Text>
-        <Text style={styles.statText}>Score: {score}</Text>
+        <Text style={[styles.statText, { color: theme.colors.onSurface }]}>Time: {timeLeft}s</Text>
+        <Text style={[styles.statText, { color: theme.colors.onSurface }]}>Score: {score}</Text>
+        <Text style={[styles.statText, { color: theme.colors.onSurface }]}>Typed: {currentIndex}</Text>
       </View>
       
       <View style={[styles.codeDisplay, { backgroundColor: theme.colors.surface }]}>
@@ -132,7 +133,7 @@ const CodeRacerGame = ({ onComplete }: { onComplete: (score: number) => void }) 
             style={[styles.key, { backgroundColor: theme.colors.surface }]}
             onPress={() => handleKeyPress(key)}
           >
-            <Text style={{ color: theme.colors.onBackground }}>{key}</Text>
+            <Text style={{ color: theme.colors.onSurface }}>{key}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -201,9 +202,9 @@ const BugSquasherGame = ({ onComplete }: { onComplete: (score: number) => void }
       <Text style={[styles.gameTitle, { color: theme.colors.primary }]}>Bug Squasher</Text>
       
       <View style={styles.statsRow}>
-        <Text style={styles.statText}>Time: {timeLeft}s</Text>
-        <Text style={styles.statText}>Score: {score}</Text>
-        <Text style={styles.statText}>Bugs: {bugs.length}</Text>
+        <Text style={[styles.statText, { color: theme.colors.onSurface }]}>Time: {timeLeft}s</Text>
+        <Text style={[styles.statText, { color: theme.colors.onSurface }]}>Score: {score}</Text>
+        <Text style={[styles.statText, { color: theme.colors.onSurface }]}>Bugs: {bugs.length}</Text>
       </View>
       
       <View style={[styles.gameArea, { backgroundColor: theme.colors.surface }]}>
@@ -355,9 +356,9 @@ const MemoryMatchGame = ({ onComplete }: { onComplete: (score: number) => void }
       <Text style={[styles.gameTitle, { color: theme.colors.primary }]}>Memory Match</Text>
       
       <View style={styles.statsRow}>
-        <Text style={styles.statText}>Time: {timeLeft}s</Text>
-        <Text style={styles.statText}>Moves: {moves}</Text>
-        <Text style={styles.statText}>Score: {score}</Text>
+        <Text style={[styles.statText, { color: theme.colors.onSurface }]}>Time: {timeLeft}s</Text>
+        <Text style={[styles.statText, { color: theme.colors.onSurface }]}>Moves: {moves}</Text>
+        <Text style={[styles.statText, { color: theme.colors.onSurface }]}>Score: {score}</Text>
       </View>
       
       <View style={styles.cardGrid}>

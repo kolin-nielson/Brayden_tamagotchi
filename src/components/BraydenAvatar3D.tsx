@@ -15,11 +15,6 @@ const BraydenAvatar3D: React.FC<BraydenAvatar3DProps> = ({ size = 220 }) => {
   const { stats, equippedCosmetics } = useBrayden();
   const { theme } = useTheme();
   
-  // Debug equipped cosmetics
-  useEffect(() => {
-    console.log('Equipped cosmetics:', JSON.stringify(equippedCosmetics));
-  }, [equippedCosmetics]);
-  
   // Animation values
   const dizzyAnim = useRef(new Animated.Value(0)).current;
   const sleepZAnim = useRef(new Animated.Value(0)).current;
@@ -453,16 +448,10 @@ const BraydenAvatar3D: React.FC<BraydenAvatar3DProps> = ({ size = 220 }) => {
   
   // Render a cosmetic item with 3D effects
   const renderCosmetic = (slot: string) => {
-    console.log(`Rendering cosmetic for slot: ${slot}`);
-    console.log(`equippedCosmetics[${slot}]:`, equippedCosmetics[slot]);
-    
     const item = equippedCosmetics[slot];
     if (!item) {
-      console.log(`No item equipped in slot: ${slot}`);
       return null;
     }
-    
-    console.log(`Rendering item: ${item.id}, icon: ${item.icon}`);
     
     const iconName = item.icon;
     const iconSize = getCosmeticSize(slot);
