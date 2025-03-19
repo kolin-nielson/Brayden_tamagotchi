@@ -396,45 +396,42 @@ const ActivityScreen = () => {
   };
   
   // Get activity display name
-  const getActivityDisplayName = (type: string) => {
+  const getActivityDisplayName = (type: string, item: any) => {
     switch (type) {
       case 'work': return 'Work';
       case 'play': return 'Play';
       case 'feed': return 'Feed';
       case 'money_activity':
-        // Find the specific money activity
-        const activityId = activityHistory.find(a => a.type === 'money_activity')?.activityId;
-        const activity = MONEY_ACTIVITIES.find(a => a.id === activityId);
+        // Use the specific activity's ID
+        const activity = MONEY_ACTIVITIES.find(a => a.id === item.activityId);
         return activity ? activity.title : 'Money Activity';
       default: return 'Activity';
     }
   };
   
   // Get activity icon
-  const getActivityIcon = (type: string) => {
+  const getActivityIcon = (type: string, item: any) => {
     switch (type) {
       case 'work': return 'briefcase';
       case 'play': return 'gamepad-variant';
       case 'feed': return 'food-apple';
       case 'money_activity':
-        // Find the specific money activity
-        const activityId = activityHistory.find(a => a.type === 'money_activity')?.activityId;
-        const activity = MONEY_ACTIVITIES.find(a => a.id === activityId);
+        // Use the specific activity's ID
+        const activity = MONEY_ACTIVITIES.find(a => a.id === item.activityId);
         return activity ? activity.icon : 'cash';
       default: return 'calendar';
     }
   };
   
   // Get activity background color
-  const getActivityColor = (type: string) => {
+  const getActivityColor = (type: string, item: any) => {
     switch (type) {
       case 'work': return theme.colors.primary;
       case 'play': return theme.colors.tertiary;
       case 'feed': return theme.colors.secondary;
       case 'money_activity':
-        // Find the specific money activity
-        const activityId = activityHistory.find(a => a.type === 'money_activity')?.activityId;
-        const activity = MONEY_ACTIVITIES.find(a => a.id === activityId);
+        // Use the specific activity's ID
+        const activity = MONEY_ACTIVITIES.find(a => a.id === item.activityId);
         return activity ? activity.color : theme.colors.success;
       default: return theme.colors.primary;
     }
@@ -446,13 +443,13 @@ const ActivityScreen = () => {
     
     return (
       <View style={[styles.activityItem, { backgroundColor: theme.colors.surface }]}>
-        <View style={[styles.iconContainer, { backgroundColor: getActivityColor(type) }]}>
-          <MaterialCommunityIcons name={getActivityIcon(type)} size={24} color="white" />
+        <View style={[styles.iconContainer, { backgroundColor: getActivityColor(type, item) }]}>
+          <MaterialCommunityIcons name={getActivityIcon(type, item)} size={24} color="white" />
         </View>
         
         <View style={styles.activityContent}>
           <Text style={[styles.activityLabel, { color: theme.colors.text }]}>
-            {getActivityDisplayName(type)}
+            {getActivityDisplayName(type, item)}
           </Text>
           
           <View style={styles.statsChanges}>

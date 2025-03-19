@@ -506,7 +506,7 @@ const BraydenAvatar3D: React.FC<BraydenAvatar3DProps> = ({ size = 220 }) => {
                 }} />
               </View>
 
-              {/* Let's make the glasses icons larger too */}
+              
               <MaterialCommunityIcons 
                 name="glasses" 
                 size={iconSize * 0.75} 

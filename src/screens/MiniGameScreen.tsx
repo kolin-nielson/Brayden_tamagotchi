@@ -169,8 +169,8 @@ const BugSquasherGame = ({ onComplete }: { onComplete: (score: number) => void }
       if (bugs.length < 10) {
         const newBug = {
           id: Date.now(),
-          x: Math.random() * (width - 50),
-          y: Math.random() * (height / 2 - 50) + 100,
+          x: Math.random() * (width - 80), // Bug width is 40px, give some margin
+          y: Math.random() * 350, // Game area height minus bug height
           scale: 0.7 + Math.random() * 0.6,
         };
         setBugs(prev => [...prev, newBug]);
@@ -207,11 +207,19 @@ const BugSquasherGame = ({ onComplete }: { onComplete: (score: number) => void }
         <Text style={[styles.statText, { color: theme.colors.onSurface }]}>Bugs: {bugs.length}</Text>
       </View>
       
-      <View style={[styles.gameArea, { backgroundColor: theme.colors.surface }]}>
+      <View style={[styles.fullGameArea, { 
+        backgroundColor: 'white',
+        flex: 1,
+        width: '100%',
+        borderRadius: 10,
+        position: 'relative',
+        marginTop: 10,
+        zIndex: 1
+      }]}>
         {bugs.map(bug => (
           <TouchableOpacity
             key={bug.id}
-            style={[styles.bug, { left: bug.x, top: bug.y, transform: [{ scale: bug.scale }] }]}
+            style={[styles.bug, { left: bug.x, top: bug.y, transform: [{ scale: bug.scale }], zIndex: 10 }]}
             onPress={() => squashBug(bug.id)}
           >
             <MaterialCommunityIcons name="bug" size={40} color="red" />
@@ -593,11 +601,14 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   // Bug Squasher styles
-  gameArea: {
+  fullGameArea: {
     width: '100%',
     height: 400,
     borderRadius: 10,
     position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#DDD'
   },
   bug: {
     position: 'absolute',
@@ -605,6 +616,7 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 5
   },
   // Memory Match styles
   cardGrid: {

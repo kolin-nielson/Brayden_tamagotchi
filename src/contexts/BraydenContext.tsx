@@ -924,13 +924,13 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
           }
           
           return {
-            ...prevStats,
+          ...prevStats,
             hunger: newHunger,
             happiness: newHappiness,
             energy: newEnergy,
             health: newHealth,
             isDead: isDead,
-            lastUpdated: now,
+          lastUpdated: now,
           };
         });
       } else {
@@ -992,13 +992,13 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
           }
           
           return {
-            ...prevStats,
+          ...prevStats,
             energy: newEnergy,
             hunger: newHunger,
             happiness: newHappiness,
             health: newHealth,
             isDead: isDead,
-            lastUpdated: now,
+          lastUpdated: now,
           };
         });
       }
@@ -1010,8 +1010,8 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
           setStats(prevStats => ({
             ...prevStats,
             isDizzy: false,
-          }));
-        }
+        }));
+      }
       }
     }, 60000);
     
@@ -1292,7 +1292,7 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Reduced hunger replenishment
       hunger: Math.min(100, prevStats.hunger + 20),
       // Increased cost to feed
-      money: Math.max(0, prevStats.money - 5),
+      money: Math.max(0, prevStats.money - 20),
     }));
     
     // Same XP for feeding
