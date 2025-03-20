@@ -86,10 +86,10 @@ interface BraydenContextType {
 }
 
 const DEFAULT_STATS: BraydenStats = {
-  hunger: 65, // Start with lower hunger
+  hunger: 65, // Start hunger
   happiness: 75,
   energy: 90,
-  money: 40, // Start with less money
+  money: 40, // Start money
   isAwake: true,
   isDizzy: false,
   lastUpdated: Date.now(),
