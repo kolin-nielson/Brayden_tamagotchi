@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Animated, Easing, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Animated, Easing, Alert, TouchableOpacity, Modal, FlatList } from 'react-native';
 import { Text, Surface, Badge, Button, IconButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,6 +10,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import BraydenAvatar3D from '../components/BraydenAvatar3D';
 import StatBar from '../components/StatBar';
 import ActionButton from '../components/ActionButton';
+import { getBoostDescription, getBoostMultiplier } from '../utils/braydenUtils';
+import { UpgradeEffectType } from '../data/upgrades';
 
 type RootStackParamList = {
   Home: undefined;
@@ -23,7 +25,7 @@ type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'H
 const HomeScreen: React.FC = () => {
   const { theme } = useTheme();
   const navigation = useNavigation<HomeScreenNavigationProp>();
-  const { stats, feedBrayden, playWithBrayden, workBrayden, resetBrayden, toggleSleep, fastForwardTime, isFastForwarding, achievements, collectibles, activeCollectibles, toggleCollectible, currentEvent, completeEvent, playMiniGame } = useBrayden();
+  const { stats, feedBrayden, playWithBrayden, workBrayden, resetBrayden, toggleSleep, fastForwardTime, isFastForwarding, achievements, currentEvent, completeEvent, playMiniGame, reviveBrayden, triggerRandomEvent, upgrades } = useBrayden();
   const { addActivity } = useActivity();
   
   // Animation for fast-forward effect
@@ -31,7 +33,6 @@ const HomeScreen: React.FC = () => {
   
   // Modal states
   const [showAchievements, setShowAchievements] = useState(false);
-  const [showCollectibles, setShowCollectibles] = useState(false);
   const [showMiniGames, setShowMiniGames] = useState(false);
   
   // Fast-forward animation effect
@@ -135,6 +136,144 @@ const HomeScreen: React.FC = () => {
     navigation.navigate('MiniGame', { gameType });
   };
 
+  // Get active upgrade bonuses to display
+  const getActiveBoosts = () => {
+    const boostTypes: UpgradeEffectType[] = [
+      'money_multiplier', 
+      'xp_multiplier', 
+      'energy_efficiency', 
+      'happiness_gain',
+      'hunger_efficiency'
+    ];
+    
+    return boostTypes.filter(type => {
+      const multiplier = getBoostMultiplier(type, stats);
+      return multiplier > 1; // Only show if there's an active boost
+    });
+  };
+
+  // Format boost type name for display
+  const formatBoostName = (boostType: UpgradeEffectType): string => {
+    switch (boostType) {
+      case 'money_multiplier': return 'Money Gain';
+      case 'xp_multiplier': return 'XP Gain';
+      case 'energy_efficiency': return 'Energy Efficiency';
+      case 'happiness_gain': return 'Happiness Gain';
+      case 'hunger_efficiency': return 'Hunger Restoration';
+      case 'health_regeneration': return 'Health Regen';
+      default: return boostType.replace('_', ' ');
+    }
+  };
+
+  // Render Achievement Modal
+  const renderAchievementsModal = () => {
+    return (
+      <Modal
+        visible={showAchievements}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAchievements(false)}
+      >
+        <View style={styles.modalContainer}>
+          <Surface style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.colors.onBackground }]}>
+                Achievements
+              </Text>
+              <IconButton
+                icon="close"
+                size={24}
+                onPress={() => setShowAchievements(false)}
+              />
+            </View>
+            
+            <Text style={[styles.modalSubtitle, { color: theme.colors.onSurfaceVariant }]}>
+              Unlock these by completing various activities
+            </Text>
+
+            <FlatList
+              data={achievements}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <Surface 
+                  style={[
+                    styles.achievementItem, 
+                    { 
+                      backgroundColor: item.isUnlocked 
+                        ? theme.colors.surface 
+                        : theme.colors.surfaceVariant,
+                      borderLeftColor: item.isUnlocked 
+                        ? theme.colors.primary 
+                        : 'transparent',
+                    }
+                  ]}
+                >
+                  <View style={[
+                    styles.achievementIcon,
+                    {
+                      backgroundColor: item.isUnlocked 
+                        ? theme.colors.primaryContainer 
+                        : theme.colors.surfaceVariant,
+                    }
+                  ]}>
+                    <MaterialCommunityIcons 
+                      name={item.icon as any} 
+                      size={24} 
+                      color={item.isUnlocked ? theme.colors.primary : theme.colors.onSurfaceVariant} 
+                    />
+                  </View>
+                  
+                  <View style={styles.achievementText}>
+                    <Text style={[
+                      styles.achievementTitle,
+                      { 
+                        color: item.isUnlocked 
+                          ? theme.colors.onSurface 
+                          : theme.colors.onSurfaceVariant,
+                        opacity: item.isUnlocked ? 1 : 0.7,
+                      }
+                    ]}>
+                      {item.title}
+                    </Text>
+                    
+                    <Text style={[
+                      styles.achievementDesc,
+                      { 
+                        color: item.isUnlocked 
+                          ? theme.colors.onSurfaceVariant 
+                          : theme.colors.onSurfaceVariant,
+                        opacity: item.isUnlocked ? 0.8 : 0.5,
+                      }
+                    ]}>
+                      {item.description}
+                    </Text>
+                  </View>
+                  
+                  {item.isUnlocked ? (
+                    <MaterialCommunityIcons 
+                      name="check-circle" 
+                      size={24} 
+                      color={theme.colors.primary} 
+                      style={styles.achievementStatus}
+                    />
+                  ) : (
+                    <MaterialCommunityIcons 
+                      name="lock" 
+                      size={24} 
+                      color={theme.colors.onSurfaceVariant} 
+                      style={styles.achievementStatus}
+                    />
+                  )}
+                </Surface>
+              )}
+              contentContainerStyle={styles.achievementsList}
+            />
+          </Surface>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.content}>
@@ -212,8 +351,8 @@ const HomeScreen: React.FC = () => {
                 onPress={() => {
                   // Check if player has enough money
                   if (stats.money >= 100) {
-                    // Call reviveBrayden function
-                    useBrayden().reviveBrayden();
+                    // Use the destructured reviveBrayden function
+                    reviveBrayden();
                   } else {
                     Alert.alert("Not enough money", "You need 100 money to revive Brayden. Earn more money first.");
                   }
@@ -326,6 +465,33 @@ const HomeScreen: React.FC = () => {
           </View>
         </Surface>
         
+        {/* Active Boosts */}
+        <Surface style={[styles.statsCard, { backgroundColor: theme.colors.surface }]}>
+          <View style={styles.cardHeader}>
+            <MaterialCommunityIcons name="arrow-up-bold-circle" size={24} color={theme.colors.primary} />
+            <Text variant="titleMedium" style={[styles.cardTitle, { color: theme.colors.onSurface }]}>Active Boosts</Text>
+          </View>
+          
+          {getActiveBoosts().length > 0 ? (
+            <View style={styles.boostsList}>
+              {getActiveBoosts().map((boostType) => (
+                <View key={boostType} style={styles.boostItem}>
+                  <Text style={[styles.boostName, { color: theme.colors.onSurface }]}>
+                    {formatBoostName(boostType)}:
+                  </Text>
+                  <Text style={[styles.boostValue, { color: theme.colors.primary }]}>
+                    {getBoostDescription(boostType, stats)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={[styles.noBoosts, { color: theme.colors.onSurfaceVariant }]}>
+              No active boosts. Buy upgrades to enhance your abilities!
+            </Text>
+          )}
+        </Surface>
+        
         {/* Actions section */}
         <Surface style={[styles.actionsCard, { backgroundColor: theme.colors.surface }]}>
           <Text variant="titleLarge" style={styles.sectionTitle}>
@@ -355,6 +521,14 @@ const HomeScreen: React.FC = () => {
               icon={<MaterialCommunityIcons name="laptop" size={20} color="#fff" />}
               color={theme.colors.tertiary}
               disabled={!stats.isAwake || stats.energy < 15}
+            />
+
+            <ActionButton
+              label="Achievements"
+              onPress={() => setShowAchievements(true)}
+              icon={<MaterialCommunityIcons name="trophy" size={20} color="#fff" />}
+              color={theme.colors.success}
+              disabled={stats.isDead}
             />
           </View>
         </Surface>
@@ -410,6 +584,8 @@ const HomeScreen: React.FC = () => {
           View History
         </Button>
       </View>
+
+      {renderAchievementsModal()}
     </ScrollView>
   );
 };
@@ -586,6 +762,96 @@ const styles = StyleSheet.create({
   reviveButton: {
     marginTop: 10,
     backgroundColor: '#00cc44',
+  },
+  boostsList: {
+    marginTop: 8,
+  },
+  boostItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  boostName: {
+    fontSize: 14,
+  },
+  boostValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  noBoosts: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  cardTitle: {
+    fontWeight: 'bold',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    width: '90%',
+    maxHeight: '80%',
+    borderRadius: 16,
+    padding: 16,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  achievementsList: {
+    paddingBottom: 16,
+  },
+  achievementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+    elevation: 2,
+    borderLeftWidth: 4,
+  },
+  achievementIcon: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 24,
+    marginRight: 12,
+  },
+  achievementText: {
+    flex: 1,
+  },
+  achievementTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  achievementDesc: {
+    fontSize: 14,
+  },
+  achievementStatus: {
+    marginLeft: 8,
   },
 });
 

@@ -12,9 +12,9 @@ import HomeScreen from '../screens/HomeScreen';
 import ActivityScreen from '../screens/ActivityScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ShopScreen from '../screens/ShopScreen';
-import WardrobeScreen from '../screens/WardrobeScreen';
 import MiniGameScreen, { MiniGameParams } from '../screens/MiniGameScreen';
 import HistoryScreen from '../screens/HistoryScreen';
+import UpgradeScreen from '../screens/UpgradeScreen';
 
 // Define the types for our navigation
 export type RootStackParamList = {
@@ -25,7 +25,7 @@ export type RootStackParamList = {
 export type MainTabParamList = {
   Home: undefined;
   Shop: undefined;
-  Wardrobe: undefined;
+  Upgrades: undefined;
   Activity: undefined;
   Settings: undefined;
   History: undefined;
@@ -145,13 +145,12 @@ const MainTabs = () => {
         }}
       />
       <Tab.Screen 
-        name="Wardrobe" 
-        component={WardrobeScreen}
+        name="Upgrades" 
+        component={UpgradeScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="hanger" color={color} size={size} />
+            <MaterialCommunityIcons name="arrow-up-bold-circle" color={color} size={size} />
           ),
-          title: "Cosmetics"
         }}
       />
       <Tab.Screen 

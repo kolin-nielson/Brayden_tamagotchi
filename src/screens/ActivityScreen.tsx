@@ -259,7 +259,26 @@ const ActivityScreen = () => {
                          2; // Default minor happiness cost
     
     // Use the earnMoney function from context
-    const result = earnMoney(activity.reward, activity.energyCost, happinessCost);
+    earnMoney(activity.reward, activity.energyCost, happinessCost);
+    
+    // Calculate XP reward based on activity type and energy cost
+    let xpReward = 0;
+    if (activity.id.includes('competition')) {
+      xpReward = 30;
+    } else if (activity.id.includes('freelance')) {
+      xpReward = 20;
+    } else if (activity.id.includes('debug')) {
+      xpReward = 10;
+    } else if (activity.id.includes('app_development')) {
+      xpReward = 40;
+    } else {
+      // Base XP is proportional to energy cost
+      xpReward = Math.max(5, Math.floor(activity.energyCost / 2));
+    }
+    
+    // Award XP separately
+    console.log(`Money activity: ${activity.title}, awarding ${xpReward} XP`);
+    gainExperience(xpReward);
     
     // Add to activity history
     const newHistoryItem = {
@@ -270,7 +289,8 @@ const ActivityScreen = () => {
       changes: {
         money: +activity.reward,
         energy: -activity.energyCost,
-        happiness: -happinessCost
+        happiness: -happinessCost,
+        xp: +xpReward
       },
     };
     
@@ -281,7 +301,7 @@ const ActivityScreen = () => {
       prev.map(act => act.id === activity.id ? updatedActivity : act)
     );
     
-    alert(`You earned $${activity.reward} from ${activity.title}!`);
+    alert(`You earned $${activity.reward} and ${xpReward} XP from ${activity.title}!`);
   };
   
   // Render money making activity item

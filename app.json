@@ -27,7 +27,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.klnnielson.Project2"
     },
     "web": {
       "favicon": "./assets/favicon.png"
