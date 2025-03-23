@@ -1,6 +1,8 @@
-import { BraydenStats } from '../types/BraydenTypes';
-import { Achievement } from '../data/achievements';
-import { Upgrade, getActiveUpgrades, getUpgradeEffectValue, UpgradeEffectType } from '../data/upgrades';
+import { BraydenStats, DEFAULT_STATS } from '../types/BraydenTypes';
+import { Achievement, ACHIEVEMENTS } from '../data/achievements';
+import { Upgrade, UPGRADES, getActiveUpgrades, getUpgradeEffectValue, UpgradeEffectType } from '../data/upgrades';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import logger from './logger';
 
 /**
  * Calculate the boost value for a specific stat type
@@ -64,6 +66,84 @@ export const getStatBoost = (statType: string, stats: BraydenStats): number => {
       return getBoostValue('hunger_efficiency', stats);
     default:
       return 0;
+  }
+};
+
+/**
+ * Load Brayden's data from AsyncStorage
+ */
+export const loadBraydenData = async () => {
+  try {
+    // Load stats
+    let loadedStats = DEFAULT_STATS;
+    const statsData = await AsyncStorage.getItem('stats');
+    if (statsData) {
+      const parsedStats = JSON.parse(statsData);
+      // Ensure all properties are present (for backward compatibility)
+      loadedStats = {
+        ...DEFAULT_STATS,
+        ...parsedStats,
+        lastUpdated: parsedStats.lastUpdated || Date.now()
+      };
+    }
+
+    // Load achievements
+    let loadedAchievements = ACHIEVEMENTS;
+    const achievementsData = await AsyncStorage.getItem('achievements');
+    if (achievementsData) {
+      const parsedAchievements = JSON.parse(achievementsData);
+      // Make sure all achievements are included, even new ones added in updates
+      loadedAchievements = ACHIEVEMENTS.map(achievement => {
+        const savedAchievement = parsedAchievements.find((a: Achievement) => a.id === achievement.id);
+        return savedAchievement ? { ...achievement, isUnlocked: savedAchievement.isUnlocked } : achievement;
+      });
+    }
+
+    // Load upgrades
+    let loadedUpgrades = UPGRADES;
+    const upgradesData = await AsyncStorage.getItem('upgrades');
+    if (upgradesData) {
+      const parsedUpgrades = JSON.parse(upgradesData);
+      // Make sure all upgrades are included, even new ones added in updates
+      loadedUpgrades = UPGRADES.map(upgrade => {
+        const savedUpgrade = parsedUpgrades.find((u: Upgrade) => u.id === upgrade.id);
+        return savedUpgrade ? { 
+          ...upgrade, 
+          level: savedUpgrade.level || 0,
+          isUnlocked: savedUpgrade.isUnlocked || false
+        } : upgrade;
+      });
+    }
+    
+    logger.info('Brayden data loaded successfully');
+    return { stats: loadedStats, achievements: loadedAchievements, upgrades: loadedUpgrades };
+  } catch (error) {
+    logger.error('Error loading Brayden data:', error);
+    return { 
+      stats: DEFAULT_STATS, 
+      achievements: ACHIEVEMENTS,
+      upgrades: UPGRADES
+    };
+  }
+};
+
+/**
+ * Save Brayden's data to AsyncStorage
+ */
+export const saveBraydenData = async (
+  stats: BraydenStats,
+  achievements: Achievement[],
+  upgrades: Upgrade[]
+) => {
+  try {
+    await AsyncStorage.setItem('stats', JSON.stringify(stats));
+    await AsyncStorage.setItem('achievements', JSON.stringify(achievements));
+    await AsyncStorage.setItem('upgrades', JSON.stringify(upgrades));
+    logger.debug('Brayden data saved successfully');
+    return true;
+  } catch (error) {
+    logger.error('Error saving Brayden data:', error);
+    return false;
   }
 };
 

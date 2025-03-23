@@ -6,6 +6,7 @@ import { Appbar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { View } from 'react-native';
+import { ShopProvider } from '../contexts/ShopContext';
 
 // Import screens
 import HomeScreen from '../screens/HomeScreen';
@@ -137,13 +138,18 @@ const MainTabs = () => {
       />
       <Tab.Screen 
         name="Shop" 
-        component={ShopScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="shopping" color={color} size={size} />
           ),
         }}
-      />
+      >
+        {() => (
+          <ShopProvider>
+            <ShopScreen />
+          </ShopProvider>
+        )}
+      </Tab.Screen>
       <Tab.Screen 
         name="Upgrades" 
         component={UpgradeScreen}

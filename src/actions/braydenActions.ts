@@ -5,6 +5,7 @@ import { Achievement } from '../data/achievements';
 import { Alert } from 'react-native';
 import { getBoostMultiplier } from '../utils/braydenUtils';
 import { BraydenContextType, StateDispatch, Cosmetic } from '../types/BraydenTypes';
+import logger from '../utils/logger';
 
 type StateDispatch<T> = React.Dispatch<React.SetStateAction<T>>;
 
@@ -22,52 +23,81 @@ export const _subscribeToAccelerometer = (
   stats: BraydenStats,
   setStats: StateDispatch<BraydenStats>,
   dizzyCount: { current: number },
-  saveData: () => Promise<void>
+  saveData: () => Promise<any>
 ) => {
-  Accelerometer.setUpdateInterval(100);
-  
-  subscription.current = Accelerometer.addListener(({ x, y, z }) => {
-    const acceleration = Math.sqrt(x * x + y * y + z * z);
-    const now = Date.now();
+  try {
+    // First ensure any existing subscription is cleared
+    if (subscription.current) {
+      _unsubscribeFromAccelerometer(subscription);
+    }
+
+    // Set up accelerometer
+    Accelerometer.setUpdateInterval(500);
     
-    // Detect shake (acceleration > 1.8)
-    if (acceleration > 1.8 && now - lastShakeTime.current > 500) {
-      lastShakeTime.current = now;
-      setShakeCount(prev => prev + 1);
+    // Create new subscription
+    subscription.current = Accelerometer.addListener(accelerometerData => {
+      const { x, y, z } = accelerometerData;
+      const acceleration = Math.sqrt(x * x + y * y + z * z);
+      const now = Date.now();
       
-      // Make Brayden dizzy if shaken too much
-      if (!stats.isDizzy && stats.isAwake) {
-        // Check if recently shaken at least 5 times in 3 seconds
-        const recentTime = now - 3000;
-        if (lastShakeTime.current > recentTime) {
-          setStats(prev => ({
-            ...prev,
-            isDizzy: true,
-            happiness: Math.max(0, prev.happiness - 10)
-          }));
-          
-          // Track dizzy count for achievement
+      // Check for shake (adjust sensitivity as needed)
+      if (acceleration > 1.8 && now - lastShakeTime.current > 500) {
+        lastShakeTime.current = now;
+        setShakeCount(prev => prev + 1);
+        
+        // Handle shaking Brayden when awake
+        if (!stats.isDead && stats.isAwake) {
+          // Increment dizzyCount
           dizzyCount.current += 1;
-          saveData();
           
-          // Auto-recover from dizziness after a while
-          setTimeout(() => {
-            setStats(prev => ({
-              ...prev,
-              isDizzy: false
-            }));
-          }, 5000);
+          // Make dizzy after several shakes
+          if (dizzyCount.current >= 5 && !stats.isDizzy) {
+            setStats(prev => {
+              const newStats = { 
+                ...prev, 
+                isDizzy: true,
+                happiness: Math.max(0, prev.happiness - 10)
+              };
+              return newStats;
+            });
+            
+            // Save data
+            saveData().catch(error => {
+              console.error("Error saving dizzy state:", error);
+            });
+            
+            // Reset dizzy count
+            setTimeout(() => {
+              setStats(prev => ({ ...prev, isDizzy: false }));
+              dizzyCount.current = 0;
+              saveData().catch(error => {
+                console.error("Error saving dizzy recovery state:", error);
+              });
+            }, 5000);
+          }
         }
       }
-    }
-  });
+    });
+    
+    return true;
+  } catch (error) {
+    console.error("Failed to subscribe to accelerometer:", error);
+    return false;
+  }
 };
 
 /**
  * Unsubscribe from accelerometer
  */
 export const _unsubscribeFromAccelerometer = (subscription: AccelerometerSubscription) => {
-  subscription.current?.unsubscribe();
+  try {
+    if (subscription.current) {
+      subscription.current.remove();
+      subscription.current = null;
+    }
+  } catch (error) {
+    console.error("Failed to unsubscribe from accelerometer:", error);
+  }
 };
 
 /**
@@ -80,10 +110,10 @@ export const toggleSleep = ({
 }: { 
   stats: BraydenStats, 
   setStats: StateDispatch<BraydenStats>, 
-  saveData: () => Promise<void> 
+  saveData: () => Promise<any> 
 }) => {
   const now = Date.now();
-  console.log("Toggling sleep state, was: ", stats.isAwake ? "awake" : "asleep");
+  logger.debug("Toggling sleep state, was: " + (stats.isAwake ? "awake" : "asleep"));
   
   setStats(prev => ({
     ...prev,
@@ -92,9 +122,9 @@ export const toggleSleep = ({
   }));
   
   // Immediate save when sleep is toggled
-  saveData();
-  
-  console.log("Sleep state changed to: ", !stats.isAwake ? "awake" : "asleep");
+  saveData().catch(error => {
+    logger.error(`Error saving sleep toggle: ${error}`);
+  });
 };
 
 /**
@@ -115,12 +145,12 @@ export const unlockAchievement = (
   achievementId: string,
   achievements: Achievement[],
   setAchievements: StateDispatch<Achievement[]>,
-  saveData: () => Promise<void>
+  saveData: () => Promise<any>
 ) => {
   // First check if the achievement ID exists in our list
   const achievementExists = achievements.some(a => a.id === achievementId);
   if (!achievementExists) {
-    console.error(`Attempted to unlock non-existent achievement: ${achievementId}`);
+    logger.error(`Attempted to unlock non-existent achievement: ${achievementId}`);
     return;
   }
 
@@ -135,15 +165,14 @@ export const unlockAchievement = (
   const wasUnlocked = !achievements.find(a => a.id === achievementId)?.isUnlocked;
   if (wasUnlocked) {
     setAchievements(updatedAchievements);
-    saveData();
+    saveData().catch(error => {
+      logger.error(`Error saving achievement unlock: ${error}`);
+    });
     
     // Find the unlocked achievement with better error handling
     const achievement = updatedAchievements.find(a => a.id === achievementId);
     
-    // Log for debugging
-    console.log(`Unlocking achievement: ID=${achievementId}, Found=${!!achievement}, Title=${achievement?.title}`);
-    
-    // Show notification for newly unlocked achievement with more details and proper fallbacks
+    // Show notification for newly unlocked achievement
     Alert.alert(
       "Achievement Unlocked!",
       `"${achievement?.title || achievementId}"\n\n${achievement?.description || "You've unlocked a new achievement!"}`,
@@ -192,10 +221,12 @@ export const resetBrayden = ({
   saveData 
 }: { 
   setStats: StateDispatch<BraydenStats>, 
-  saveData: () => Promise<void> 
+  saveData: () => Promise<any> 
 }) => {
   setStats(DEFAULT_STATS);
-  saveData();
+  saveData().catch(error => {
+    logger.error(`Error saving after reset: ${error}`);
+  });
 };
 
 /**
@@ -208,7 +239,7 @@ export const reviveBrayden = ({
 }: { 
   stats: BraydenStats, 
   setStats: StateDispatch<BraydenStats>, 
-  saveData: () => Promise<void>
+  saveData: () => Promise<any>
 }) => {
   if (stats.isDead) {
     setStats(prev => ({
@@ -220,7 +251,9 @@ export const reviveBrayden = ({
       isDead: false,
       lastUpdated: Date.now()
     }));
-    saveData();
+    saveData().catch(error => {
+      logger.error(`Error saving after revive: ${error}`);
+    });
   }
 };
 
@@ -235,39 +268,39 @@ export const feedBrayden = ({
 }: { 
   stats: BraydenStats, 
   setStats: StateDispatch<BraydenStats>, 
-  saveData: () => Promise<void>,
+  saveData: () => Promise<any>,
   unlockAchievement: (id: string) => void
 }) => {
   if (stats.isDead) {
-    Alert.alert("Can't feed Brayden", "Brayden has fainted and needs to be revived first!");
+    Alert.alert("Can't feed", "Brayden has fainted and needs to be revived first!");
     return;
   }
   
-  if (stats.hunger >= 100) {
-    Alert.alert("Full!", "Brayden is already full!");
+  if (stats.hunger >= 90) {
+    Alert.alert("Too full!", "Brayden is already full and can't eat any more!");
     return;
   }
   
-  const hungerBoostMultiplier = getBoostMultiplier('hunger_efficiency', stats);
-  const happinessCost = stats.hunger > 90 ? 5 : 0; // Overfeeding reduces happiness
+  // Apply boosts from upgrades
+  const hungerEfficiencyMultiplier = getBoostMultiplier('hunger_efficiency', stats);
   
-  // Apply boost to hunger gain
-  const baseHunger = 15;
-  const hungerGain = Math.floor(baseHunger * hungerBoostMultiplier);
+  // Calculate hunger restoration with boost
+  const baseHungerRestored = 20;
+  const hungerRestored = Math.floor(baseHungerRestored * hungerEfficiencyMultiplier);
   
-  console.log(`Feed: Hunger gain=${hungerGain} (base=${baseHunger}, multiplier=${hungerBoostMultiplier})`);
-  
+  // Update stats
   setStats(prev => ({
     ...prev,
-    hunger: Math.min(100, prev.hunger + hungerGain),
-    happiness: Math.max(0, prev.happiness - happinessCost),
+    hunger: Math.min(100, prev.hunger + hungerRestored),
     lastUpdated: Date.now()
   }));
   
   // Track feeding for achievement
   unlockAchievement('feed_10');
   
-  saveData();
+  saveData().catch(error => {
+    logger.error(`Error saving after feeding: ${error}`);
+  });
 };
 
 /**
@@ -281,7 +314,7 @@ export const playWithBrayden = ({
 }: { 
   stats: BraydenStats, 
   setStats: StateDispatch<BraydenStats>, 
-  saveData: () => Promise<void>,
+  saveData: () => Promise<any>,
   unlockAchievement: (id: string) => void
 }) => {
   if (stats.isDead) {
@@ -308,9 +341,9 @@ export const playWithBrayden = ({
   const energyCost = Math.max(1, Math.floor(baseEnergyCost * energyEfficiencyMultiplier));
   const xpGain = Math.ceil(baseXp * xpMultiplier);
   
-  console.log(`Play: Happiness gain=${happinessGain} (base=${baseHappiness}, multiplier=${happinessBoostMultiplier})`);
-  console.log(`Play: Energy cost=${energyCost} (base=${baseEnergyCost}, efficiency=${energyEfficiencyMultiplier})`);
-  console.log(`Play: XP gain=${xpGain} (base=${baseXp}, multiplier=${xpMultiplier})`);
+  logger.debug(`Play: Happiness gain=${happinessGain} (base=${baseHappiness}, multiplier=${happinessBoostMultiplier})`);
+  logger.debug(`Play: Energy cost=${energyCost} (base=${baseEnergyCost}, efficiency=${energyEfficiencyMultiplier})`);
+  logger.debug(`Play: XP gain=${xpGain} (base=${baseXp}, multiplier=${xpMultiplier})`);
   
   // Update stats 
   setStats(prev => ({
@@ -332,7 +365,9 @@ export const playWithBrayden = ({
   // Track play sessions for achievement
   unlockAchievement('play_10');
   
-  saveData();
+  saveData().catch(error => {
+    logger.error(`Error saving after playing: ${error}`);
+  });
 };
 
 /**
@@ -342,11 +377,13 @@ export const workBrayden = ({
   stats, 
   setStats, 
   saveData, 
+  totalMoneyEarned,
   unlockAchievement 
 }: { 
   stats: BraydenStats, 
   setStats: StateDispatch<BraydenStats>, 
-  saveData: () => Promise<void>,
+  saveData: () => Promise<any>,
+  totalMoneyEarned: { current: number },
   unlockAchievement: (id: string) => void
 }) => {
   if (stats.isDead) {
@@ -375,19 +412,24 @@ export const workBrayden = ({
   const happinessCost = baseHappinessCost;
   const xpGain = Math.ceil(baseXp * xpMultiplier);
   
-  console.log(`Work: Money earned=${earnings} (base=${baseEarnings}, multiplier=${moneyMultiplier})`);
-  console.log(`Work: Energy cost=${energyCost} (base=${baseEnergyCost}, efficiency=${energyEfficiencyMultiplier})`);
-  console.log(`Work: Happiness cost=${happinessCost}`);
-  console.log(`Work: XP gain=${xpGain} (base=${baseXp}, multiplier=${xpMultiplier})`);
+  logger.debug(`Work: Money earned=${earnings} (base=${baseEarnings}, multiplier=${moneyMultiplier})`);
+  logger.debug(`Work: Energy cost=${energyCost} (base=${baseEnergyCost}, efficiency=${energyEfficiencyMultiplier})`);
+  logger.debug(`Work: Happiness cost=${happinessCost}`);
+  logger.debug(`Work: XP gain=${xpGain} (base=${baseXp}, multiplier=${xpMultiplier})`);
   
   // Update stats
-  setStats(prev => ({
-    ...prev,
-    money: prev.money + earnings,
-    energy: Math.max(0, prev.energy - energyCost),
-    happiness: Math.max(0, prev.happiness - happinessCost),
-    lastUpdated: Date.now()
-  }));
+  setStats(prev => {
+    const newMoney = prev.money + earnings;
+    totalMoneyEarned.current += earnings;
+    
+    return {
+      ...prev,
+      money: newMoney,
+      energy: Math.max(0, prev.energy - energyCost),
+      happiness: Math.max(0, prev.happiness - happinessCost),
+      lastUpdated: Date.now()
+    };
+  });
   
   // Award XP separately
   gainExperience({
@@ -401,7 +443,14 @@ export const workBrayden = ({
   // Track work sessions for achievement
   unlockAchievement('work_10');
   
-  saveData();
+  // Check for money achievements
+  if (totalMoneyEarned.current >= 5000) {
+    unlockAchievement('earn_5000');
+  }
+  
+  saveData().catch(error => {
+    logger.error(`Error saving after working: ${error}`);
+  });
 };
 
 /**
@@ -417,10 +466,10 @@ export const gainExperience = ({
   amount: number, 
   stats: BraydenStats, 
   setStats: StateDispatch<BraydenStats>, 
-  saveData: () => Promise<void>,
+  saveData: () => Promise<any>,
   unlockAchievement: (id: string) => void
 }) => {
-  console.log(`XP System: Adding ${amount} experience points`);
+  logger.debug(`XP System: Adding ${amount} experience points`);
   
   // Calculate experience needed for next level
   const expToNextLevel = stats.level * 100;
@@ -429,11 +478,11 @@ export const gainExperience = ({
   let newExp = stats.experience + amount;
   let newLevel = stats.level;
   
-  console.log(`XP System: Current XP=${stats.experience}, New Total=${newExp}, Required for next level=${expToNextLevel}`);
+  logger.debug(`XP System: Current XP=${stats.experience}, New Total=${newExp}, Required for next level=${expToNextLevel}`);
   
   // Check if leveled up
   while (newExp >= expToNextLevel) {
-    console.log(`XP System: Level up triggered! Experience overflow: ${newExp}/${expToNextLevel}`);
+    logger.debug(`XP System: Level up triggered! Experience overflow: ${newExp}/${expToNextLevel}`);
     newExp -= expToNextLevel;
     newLevel += 1;
     
@@ -450,7 +499,7 @@ export const gainExperience = ({
     }
   }
   
-  console.log(`XP System: Final values - Level=${newLevel}, XP=${newExp}`);
+  logger.debug(`XP System: Final values - Level=${newLevel}, XP=${newExp}`);
   
   // Update stats
   setStats(prev => ({
@@ -459,7 +508,9 @@ export const gainExperience = ({
     level: newLevel,
   }));
   
-  saveData();
+  saveData().catch(error => {
+    logger.error(`Error saving after XP gain: ${error}`);
+  });
 };
 
 /**
@@ -472,14 +523,16 @@ export const levelUp = ({
 }: { 
   stats: BraydenStats, 
   setStats: StateDispatch<BraydenStats>, 
-  saveData: () => Promise<void> 
+  saveData: () => Promise<any> 
 }) => {
   setStats(prev => ({
     ...prev,
     level: prev.level + 1,
     experience: 0,
   }));
-  saveData();
+  saveData().catch(error => {
+    logger.error(`Error saving after manual level up: ${error}`);
+  });
 };
 
 /**
@@ -495,7 +548,7 @@ export const playMiniGame = ({
   gameType: string, 
   stats: BraydenStats, 
   setStats: StateDispatch<BraydenStats>,
-  saveData: () => Promise<void>,
+  saveData: () => Promise<any>,
   unlockAchievement: (id: string) => void
 }) => {
   // Pre-check for energy cost
@@ -523,7 +576,7 @@ export const playMiniGame = ({
     return;
   }
   
-  console.log(`Mini-game: Playing ${gameType} game, XP gain: ${xpGain}`);
+  logger.debug(`Mini-game: Playing ${gameType} game, XP gain: ${xpGain}`);
   
   // Implement different game logic based on gameType
   if (gameType === 'quick') {
@@ -565,78 +618,51 @@ export const playMiniGame = ({
 };
 
 /**
- * Purchase a collectible
+ * Purchase collectible
  */
 export const purchaseCollectible = ({ 
   id, 
-  autoEquip, 
-  stats, 
-  setStats, 
+  cost, 
   collectibles, 
   setCollectibles, 
+  stats, 
+  setStats, 
+  autoEquip, 
   equipCosmetic, 
   saveData 
 }: { 
   id: string, 
-  autoEquip: boolean, 
+  cost: number, 
+  collectibles: Collectible[], 
+  setCollectibles: StateDispatch<Collectible[]>, 
   stats: BraydenStats, 
   setStats: StateDispatch<BraydenStats>, 
-  collectibles: Collectible[], 
-  setCollectibles: StateDispatch<Collectible[]>,
+  autoEquip?: boolean,
   equipCosmetic: (id: string) => boolean,
-  saveData: () => Promise<void> 
+  saveData: () => Promise<any>
 }): boolean => {
-  console.log("Attempting to purchase item:", id);
+  // Check if we can afford it
+  if (stats.money < cost) {
+    Alert.alert("Can't afford", "You don't have enough money for this item!");
+    return false;
+  }
   
   // Find the item
   const itemIndex = collectibles.findIndex(item => item.id === id);
   if (itemIndex === -1) {
-    console.log("Purchase failed: Item not found");
+    logger.error(`Item not found: ${id}`);
     return false;
   }
   
   const item = collectibles[itemIndex];
-  console.log("Item details:", item.name, "Rarity:", item.rarity, "Type:", item.type);
   
   // Check if already owned
   if (item.isOwned) {
-    console.log("Purchase failed: Already owned");
+    Alert.alert("Already owned", "You already own this item!");
     return false;
   }
   
-  // Calculate cost based on rarity
-  let cost;
-  switch (item.rarity) {
-    case 'common':
-      cost = 50;
-      break;
-    case 'uncommon':
-      cost = 100;
-      break;
-    case 'rare':
-      cost = 200;
-      break;
-    case 'legendary':
-      cost = 500;
-      break;
-    default:
-      cost = 100;
-  }
-  
-  console.log("Item cost:", cost, "Player money:", stats.money);
-  
-  // Check if enough money
-  if (stats.money < cost) {
-    console.log("Purchase failed: Not enough money");
-    Alert.alert(
-      "Not Enough Money",
-      `You need $${cost} to purchase this item.`,
-      [{ text: "OK" }]
-    );
-    return false;
-  }
-  
-  // Purchase item
+  // Deduct money
   setStats(prev => ({
     ...prev,
     money: prev.money - cost,
@@ -648,11 +674,11 @@ export const purchaseCollectible = ({
   
   // Auto-equip if requested
   if (autoEquip && item.type === 'cosmetic') {
-    console.log("Auto-equipping item:", id);
+    logger.debug("Auto-equipping item:", id);
     equipCosmetic(id);
   }
   
-  console.log("Purchase successful!");
+  logger.debug("Purchase successful!");
   
   // Show purchase confirmation
   Alert.alert(
@@ -661,7 +687,9 @@ export const purchaseCollectible = ({
     [{ text: "Nice!" }]
   );
   
-  saveData();
+  saveData().catch(error => {
+    logger.error(`Error saving after purchase: ${error}`);
+  });
   return true;
 };
 
@@ -720,10 +748,10 @@ export const equipCosmetic = ({
   setCollectibles: StateDispatch<Collectible[]>, 
   equippedCosmetics: { [key: string]: Collectible | null }, 
   setEquippedCosmetics: StateDispatch<{ [key: string]: Collectible | null }>, 
-  saveData: () => Promise<void> 
+  saveData: () => Promise<any> 
 }): boolean => {
-  console.log("equipCosmetic called for item:", id);
-  console.log("Current equipped cosmetics:", Object.keys(equippedCosmetics).map(key => `${key}: ${equippedCosmetics[key]?.id || 'none'}`));
+  logger.debug("equipCosmetic called for item:", id);
+  logger.debug("Current equipped cosmetics:", Object.keys(equippedCosmetics).map(key => `${key}: ${equippedCosmetics[key]?.id || 'none'}`));
   
   const success = _equipCosmetic(id, collectibles, equippedCosmetics, setEquippedCosmetics);
   if (success) {
@@ -736,10 +764,12 @@ export const equipCosmetic = ({
     });
     
     setCollectibles(updatedCollectibles);
-    saveData();
-    console.log("equipCosmetic: Item saved as equipped");
+    saveData().catch(error => {
+      logger.error(`Error saving after equipping cosmetic: ${error}`);
+    });
+    logger.debug("equipCosmetic: Item saved as equipped");
   } else {
-    console.log("equipCosmetic: Failed to equip item");
+    logger.debug("equipCosmetic: Failed to equip item");
   }
   return success;
 };
@@ -756,7 +786,7 @@ export const unequipCosmetic = ({
   slot: string, 
   equippedCosmetics: { [key: string]: Collectible | null }, 
   setEquippedCosmetics: StateDispatch<{ [key: string]: Collectible | null }>, 
-  saveData: () => Promise<void> 
+  saveData: () => Promise<any> 
 }) => {
   if (!slot || !equippedCosmetics[slot]) return;
   
@@ -766,7 +796,9 @@ export const unequipCosmetic = ({
     [slot]: null,
   }));
   
-  saveData();
+  saveData().catch(error => {
+    logger.error(`Error saving after unequipping cosmetic: ${error}`);
+  });
 };
 
 /**
@@ -788,7 +820,7 @@ export const earnMoney = ({
   stats: BraydenStats, 
   setStats: StateDispatch<BraydenStats>, 
   totalMoneyEarned: { current: number }, 
-  saveData: () => Promise<void>,
+  saveData: () => Promise<any>,
   unlockAchievement: (id: string) => void
 }) => {
   // Update stats
@@ -810,5 +842,7 @@ export const earnMoney = ({
     unlockAchievement('money_1000');
   }
   
-  saveData();
+  saveData().catch(error => {
+    logger.error(`Error saving after earning money: ${error}`);
+  });
 }; 

@@ -2,6 +2,7 @@ import { Alert } from 'react-native';
 import { BraydenStats } from '../types/BraydenTypes';
 import { Upgrade, getUpgradeNextLevelCost, UPGRADES } from '../data/upgrades';
 import { StateDispatch } from '../types/BraydenTypes';
+import logger from '../utils/logger';
 
 /**
  * Purchase or upgrade an item
@@ -19,14 +20,14 @@ export const purchaseUpgrade = ({
   setStats: StateDispatch<BraydenStats>,
   upgrades: Upgrade[],
   setUpgrades: StateDispatch<Upgrade[]>,
-  saveData: () => Promise<void>
+  saveData: () => Promise<any>
 }): boolean => {
-  console.log(`Attempting to purchase/upgrade: ${id}`);
+  logger.debug(`Attempting to purchase/upgrade: ${id}`);
   
   const upgradeIndex = upgrades.findIndex(upgrade => upgrade.id === id);
   
   if (upgradeIndex === -1) {
-    console.log(`Upgrade not found: ${id}`);
+    logger.error(`Upgrade not found: ${id}`);
     Alert.alert("Error", "This upgrade doesn't exist.");
     return false;
   }
@@ -77,7 +78,9 @@ export const purchaseUpgrade = ({
   setUpgrades(updatedUpgrades);
   
   // Save changes
-  saveData();
+  saveData().catch(error => {
+    logger.error(`Error saving upgrade purchase: ${error}`);
+  });
   
   // Show success message
   Alert.alert(
@@ -97,10 +100,12 @@ export const resetUpgrades = ({
   saveData
 }: {
   setUpgrades: StateDispatch<Upgrade[]>,
-  saveData: () => Promise<void>
+  saveData: () => Promise<any>
 }) => {
   setUpgrades(UPGRADES);
-  saveData();
+  saveData().catch(error => {
+    logger.error(`Error saving upgrades reset: ${error}`);
+  });
 };
 
 /**
@@ -115,7 +120,7 @@ export const checkAndUnlockUpgrades = ({
   stats: BraydenStats,
   upgrades: Upgrade[],
   setUpgrades: StateDispatch<Upgrade[]>,
-  saveData: () => Promise<void>
+  saveData: () => Promise<any>
 }): boolean => {
   let anyUnlocked = false;
   const updatedUpgrades = [...upgrades];
@@ -141,7 +146,9 @@ export const checkAndUnlockUpgrades = ({
   
   if (anyUnlocked) {
     setUpgrades(updatedUpgrades);
-    saveData();
+    saveData().catch(error => {
+      logger.error(`Error saving upgrade unlocks: ${error}`);
+    });
     
     Alert.alert(
       "New Upgrades Unlocked!",

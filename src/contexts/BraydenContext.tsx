@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, DeviceEventEmitter, Alert } from 'react-native';
 import { Accelerometer } from 'expo-sensors';
@@ -11,6 +11,9 @@ import { BraydenContextType } from '../types/ContextTypes';
 import { getBoostMultiplier, getStatBoost, checkForAchievements } from '../utils/braydenUtils';
 import * as BraydenActions from '../actions/braydenActions';
 import { Upgrade, UPGRADES } from '../data/upgrades';
+import { loadBraydenData, saveBraydenData } from '../utils/braydenUtils';
+import logger from '../utils/logger';
+import { useDataPersistence } from '../hooks/useDataPersistence';
 
 // Create context
 export const BraydenContext = createContext<BraydenContextType | null>(null);
@@ -29,6 +32,29 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const totalMoneyEarned = useRef(0);
   const dizzyCount = useRef(0);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Get data persistence hooks
+  const { 
+    saveData,
+    saveBraydenData, 
+    loadData, 
+    loadBraydenData,
+    removeData,
+    isLoading: dataIsLoading,
+    isError: dataIsError
+  } = useDataPersistence();
+
+  // Save data to persistent storage - defined early to avoid reference issues
+  const saveGameState = useCallback((): Promise<any> => {
+    return saveBraydenData(stats, achievements, upgrades)
+      .catch(error => {
+        logger.error('Failed to save game state:', error);
+        setError('Failed to save data');
+        throw error; // Re-throw to propagate the error
+      });
+  }, [stats, achievements, upgrades, saveBraydenData]);
 
   // Initialize random events with context
   useEffect(() => {
@@ -48,54 +74,54 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     if (!isFastForwarding) return;
     
-    console.log("Fast forward activated");
     const fastForwardTimer = setInterval(() => {
       if (!stats.isDead) {
-        // Instead of calling updateStats multiple times in a loop,
-        // simulate passing of more time in a single update by using a larger hoursPassed value
+        // Simulate passage of time
         const now = Date.now();
+        const lastUpdateTime = stats.lastUpdated;
+        const timeDiff = now - lastUpdateTime;
         
-        // Simulate 20 minutes passing at once (adjusted from 30 for better balance)
-        const simulatedTime = now + (20 * 60 * 1000);
+        // In fast forward mode, we'll simulate at least 5 minutes passing
+        // even if the actual time difference is smaller
+        const minimumTimeDiffInFF = 5 * 60 * 1000; // 5 minutes in milliseconds
+        const effectiveTimeDiff = Math.max(timeDiff, minimumTimeDiffInFF);
         
-        if (!stats.isAwake) {
-          // While sleeping, energy increases, hunger decreases slower
+        const hoursPassed = effectiveTimeDiff / (1000 * 60 * 60);
+        
+        if (hoursPassed > 0) {
+          // Simulate what would happen over this time
           setStats(prev => {
-            // Calculate new values with accelerated time (20 minutes)
-            const hoursPassed = 0.33; // 20 minutes
-            const newEnergy = Math.min(100, prev.energy + hoursPassed * 20); // Balanced rate
-            const newHunger = Math.max(0, prev.hunger - hoursPassed * 1); // Slower decay
+            // Calculate stat changes based on awake/asleep state
+            let newHunger, newEnergy, newHappiness, healthChange;
             
-            console.log("Fast forward sleep recovery - Energy: ", prev.energy, " -> ", newEnergy);
-            
-            return {
-            ...prev,
-              energy: newEnergy,
-              hunger: newHunger,
-              lastUpdated: simulatedTime,
-            };
-          });
-        } else {
-          // Regular stat decay while awake
-          setStats(prev => {
-            // Calculate new values with accelerated time
-            const hoursPassed = 0.33; // 20 minutes
-            const newHunger = Math.max(0, prev.hunger - hoursPassed * 4);
-            const newEnergy = Math.max(0, prev.energy - hoursPassed * 3);
-            const newHappiness = Math.max(0, prev.happiness - hoursPassed * 2);
-            
-            // If hunger or energy is critically low, decrease health
-            const healthChange = 
-              (newHunger < 15 ? -hoursPassed * 4 : 0) + 
-              (newEnergy < 15 ? -hoursPassed * 4 : 0);
+            if (!prev.isAwake) {
+              // Sleeping: energy increases, hunger decreases slower
+              newHunger = Math.max(0, prev.hunger - hoursPassed * 1);
+              newEnergy = Math.min(100, prev.energy + hoursPassed * 40);
+              newHappiness = prev.happiness; // Happiness stays constant while sleeping
+              healthChange = 0; // No health change while sleeping
+              
+              logger.debug(`Sleep FF - Hours: ${hoursPassed.toFixed(2)}, Energy: ${prev.energy.toFixed(1)} -> ${newEnergy.toFixed(1)}, Hunger: ${prev.hunger.toFixed(1)} -> ${newHunger.toFixed(1)}`);
+            } else {
+              // Awake: all stats decrease
+              newHunger = Math.max(0, prev.hunger - hoursPassed * 4);
+              newEnergy = Math.max(0, prev.energy - hoursPassed * 3);
+              newHappiness = Math.max(0, prev.happiness - hoursPassed * 2);
+              
+              // Health changes if stats are critical
+              healthChange = 
+                (newHunger < 15 ? -hoursPassed * 4 : 0) +
+                (newEnergy < 15 ? -hoursPassed * 4 : 0);
+            }
             
             const newHealth = Math.max(0, prev.health + healthChange);
             const isDead = newHealth <= 0;
             
-            console.log("Fast forward stat update - Energy: ", prev.energy, " -> ", newEnergy);
+            // Simulate up to current time
+            const simulatedTime = now;
             
             return {
-          ...prev,
+              ...prev,
               hunger: newHunger,
               energy: newEnergy,
               happiness: newHappiness,
@@ -104,16 +130,18 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
               lastUpdated: simulatedTime,
             };
           });
+          
+          // Save data after the update
+          saveGameState().catch(error => {
+            logger.error(`Error saving during fast forward: ${error}`);
+          });
+          logger.debug("Fast forwarding time...");
         }
-        
-        // Save data after the update
-    saveData();
-        console.log("Fast forwarding time...");
       }
     }, 1500); // Run more frequently - changed from 2000ms to 1500ms
 
     return () => clearInterval(fastForwardTimer);
-  }, [isFastForwarding, stats.isDead, stats.isAwake, saveData]);
+  }, [isFastForwarding, stats.isDead, stats.isAwake, saveGameState]);
 
   // Check for streak updates
   useEffect(() => {
@@ -157,9 +185,9 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Data persistence
   useEffect(() => {
-    loadData();
+    loadInitialState();
     
-    // Subscribe to accelerometer for shake detection
+    // Subscribe to accelerometer
     BraydenActions._subscribeToAccelerometer(
       subscription, 
       lastShakeTime, 
@@ -167,51 +195,62 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
       stats, 
       setStats, 
       dizzyCount, 
-      saveData
+      saveGameState
     );
     
-    // Check for achievements on load
-    checkForAchievements(stats, achievements, unlockAchievement, totalMoneyEarned, dizzyCount);
+    // Initial stats update to handle time passed while app was closed
+    updateStats();
     
-    // Return cleanup
     return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      BraydenActions._unsubscribeFromAccelerometer(subscription);
+      if (subscription.current) {
+        BraydenActions._unsubscribeFromAccelerometer(subscription);
+      }
     };
   }, []);
 
-  // Update stats according to time passed when app opens
+  // Update stats based on elapsed time
   const updateStats = () => {
-      const now = Date.now();
-    const hoursPassed = (now - stats.lastUpdated) / (1000 * 60 * 60);
+    const now = Date.now();
+    const lastUpdateTime = stats.lastUpdated;
+    const timeDiff = now - lastUpdateTime;
     
-    if (hoursPassed < 0.01) {
-      console.log("Time passed too short, skipping update: ", hoursPassed);
-      return; // Skip if less than about half a minute
+    // Only update if some time has passed (normal mode)
+    // In regular mode, we require at least 36 seconds
+    if (timeDiff < 36000 && !isFastForwarding) return;
+    
+    // When sleeping, ensure we have at least a minimum time increment to make changes visible
+    let hoursPassed;
+    if (!stats.isAwake) {
+      // For sleep, always simulate at least 2 minutes passing to ensure visible changes
+      const minimumSleepTimeDiff = 2 * 60 * 1000; // 2 minutes in milliseconds
+      const effectiveTimeDiff = Math.max(timeDiff, minimumSleepTimeDiff);
+      hoursPassed = effectiveTimeDiff / (1000 * 60 * 60);
+    } else {
+      hoursPassed = timeDiff / (1000 * 60 * 60);
     }
-    
-    console.log("Updating stats, hours passed: ", hoursPassed);
     
     // Don't decay stats while sleeping
     if (!stats.isAwake) {
       // While sleeping, energy increases, hunger decreases slower
       setStats(prev => {
         // Calculate new values
-        // Balanced energy recovery - faster but not too fast
-        const newEnergy = Math.min(100, prev.energy + hoursPassed * 20); 
+        // Increased energy recovery rate for faster replenishment
+        const newEnergy = Math.min(100, prev.energy + hoursPassed * 40);
         // Slower hunger decrease during sleep
         const newHunger = Math.max(0, prev.hunger - hoursPassed * 1); 
         
-        console.log("Sleep recovery - Energy: ", prev.energy, " -> ", newEnergy);
+        logger.debug(`Sleep recovery - Hours passed: ${hoursPassed.toFixed(2)}, Energy: ${prev.energy.toFixed(1)} -> ${newEnergy.toFixed(1)}, Hunger: ${prev.hunger.toFixed(1)} -> ${newHunger.toFixed(1)}`);
           
-          return {
+        return {
           ...prev,
-            energy: newEnergy,
+          energy: newEnergy,
           hunger: newHunger,
           lastUpdated: now,
-          };
-        });
-      saveData(); // Make sure to save after updating stats
+        };
+      });
+      saveGameState().catch(error => {
+        logger.error(`Error saving during sleep recovery: ${error}`);
+      });
       return;
     }
     
@@ -230,7 +269,7 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const newHealth = Math.max(0, prev.health + healthChange);
           const isDead = newHealth <= 0;
           
-      console.log("Regular stat update - Energy: ", prev.energy, " -> ", newEnergy);
+      logger.debug("Regular stat update - Energy: ", prev.energy, " -> ", newEnergy);
       
       // If Brayden just died, trigger alert
       if (!prev.isDead && isDead) {
@@ -252,65 +291,30 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
           };
         });
     
-    saveData();
+    saveGameState();
   };
 
   // Load data from persistent storage
-  const loadData = async () => {
+  const loadInitialState = useCallback(async () => {
     try {
-      const statsData = await AsyncStorage.getItem('stats');
-      if (statsData) {
-        const parsedStats = JSON.parse(statsData);
-        setStats({ ...DEFAULT_STATS, ...parsedStats, lastUpdated: Date.now() });
-      }
-
-      const achievementsData = await AsyncStorage.getItem('achievements');
-      if (achievementsData) {
-        const parsedAchievements = JSON.parse(achievementsData);
-        
-        // Make sure all achievements are included, even new ones added in updates
-        const mergedAchievements = ACHIEVEMENTS.map(achievement => {
-          const savedAchievement = parsedAchievements.find((a: Achievement) => a.id === achievement.id);
-          return savedAchievement || achievement;
-        });
-        
-        setAchievements(mergedAchievements);
-      }
-
-      const upgradesData = await AsyncStorage.getItem('upgrades');
-      if (upgradesData) {
-        const parsedUpgrades = JSON.parse(upgradesData);
-        
-        // Make sure all upgrades are included, even new ones added in updates
-        const mergedUpgrades = UPGRADES.map(upgrade => {
-          const savedUpgrade = parsedUpgrades.find((u: Upgrade) => u.id === upgrade.id);
-          return savedUpgrade || upgrade;
-        });
-        
-        setUpgrades(mergedUpgrades);
-      }
-
-      console.log('Data loaded successfully');
+      const { stats, achievements, upgrades } = await loadBraydenData();
+      
+      // Update state
+      setStats(stats);
+      setAchievements(achievements);
+      setUpgrades(upgrades);
+      
+      setIsLoading(false);
     } catch (error) {
-      console.error('Error loading data:', error);
+      logger.error('Failed to load initial state:', error);
+      setIsLoading(false);
+      setError('Failed to load data');
     }
-  };
-
-  // Save data to persistent storage
-  const saveData = async () => {
-    try {
-      await AsyncStorage.setItem('stats', JSON.stringify(stats));
-      await AsyncStorage.setItem('achievements', JSON.stringify(achievements));
-      await AsyncStorage.setItem('upgrades', JSON.stringify(upgrades));
-      console.log('Data saved successfully');
-    } catch (error) {
-      console.error('Error saving data:', error);
-    }
-  };
+  }, [loadBraydenData]);
 
   // Unlock achievement
   const unlockAchievement = (id: string) => {
-    BraydenActions.unlockAchievement(id, achievements, setAchievements, saveData);
+    BraydenActions.unlockAchievement(id, achievements, setAchievements, saveGameState);
   };
 
   // Function wrappers
@@ -318,7 +322,7 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     BraydenActions.feedBrayden({ 
       stats, 
       setStats, 
-      saveData,
+      saveData: saveGameState,
       unlockAchievement
     });
   };
@@ -327,7 +331,7 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     BraydenActions.playWithBrayden({ 
       stats, 
       setStats, 
-      saveData,
+      saveData: saveGameState,
       unlockAchievement
     });
   };
@@ -336,22 +340,22 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     BraydenActions.workBrayden({ 
       stats, 
       setStats, 
-      saveData, 
+      saveData: saveGameState, 
       totalMoneyEarned,
       unlockAchievement
     });
   };
 
   const resetBrayden = () => {
-    BraydenActions.resetBrayden({ setStats, saveData });
+    BraydenActions.resetBrayden({ setStats, saveData: saveGameState });
   };
 
   const reviveBrayden = () => {
-    BraydenActions.reviveBrayden({ setStats, saveData });
+    BraydenActions.reviveBrayden({ stats, setStats, saveData: saveGameState });
   };
 
   const toggleSleep = () => {
-    BraydenActions.toggleSleep({ stats, setStats, saveData });
+    BraydenActions.toggleSleep({ stats, setStats, saveData: saveGameState });
   };
 
   const fastForwardTime = () => {
@@ -359,11 +363,11 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const gainExperience = (amount: number) => {
-    BraydenActions.gainExperience({ amount, stats, setStats, saveData, unlockAchievement });
+    BraydenActions.gainExperience({ amount, stats, setStats, saveData: saveGameState, unlockAchievement });
   };
 
   const levelUp = () => {
-    BraydenActions.levelUp({ stats, setStats, saveData });
+    BraydenActions.levelUp({ stats, setStats, saveData: saveGameState });
   };
 
   const triggerRandomEvent = () => {
@@ -379,7 +383,7 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
       gameType, 
       stats, 
       setStats,
-      saveData,
+      saveData: saveGameState,
       unlockAchievement
     });
   };
@@ -413,7 +417,7 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
     
     setUpgrades(updatedUpgrades);
-    saveData();
+    saveGameState();
     
     // Check for achievements related to upgrades
     if (updatedUpgrades[upgradeIndex].level >= updatedUpgrades[upgradeIndex].maxLevel) {
@@ -442,9 +446,61 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
       stats, 
       setStats, 
       totalMoneyEarned, 
-      saveData, 
+      saveData: saveGameState, 
       unlockAchievement 
     });
+  };
+
+  const checkAndApplyDailyBonus = () => {
+    const now = new Date();
+    const lastBonusDate = stats.lastDailyBonus ? new Date(stats.lastDailyBonus) : null;
+    
+    // Check if it's a new day since last bonus
+    if (!lastBonusDate || 
+        now.getDate() !== lastBonusDate.getDate() || 
+        now.getMonth() !== lastBonusDate.getMonth() || 
+        now.getFullYear() !== lastBonusDate.getFullYear()) {
+      
+      // Award daily bonus
+      setStats(prev => ({
+        ...prev,
+        money: prev.money + 50, // Give 50 coins
+        energy: Math.min(100, prev.energy + 20), // Restore some energy
+        happiness: Math.min(100, prev.happiness + 10), // Boost happiness
+        lastDailyBonus: now.getTime(),
+      }));
+      
+      Alert.alert(
+        "Daily Bonus!",
+        "You received 50 coins, 20 energy, and 10 happiness for playing today!",
+        [{ text: "Awesome!" }]
+      );
+      
+      saveGameState();
+    }
+  };
+
+  const applyMultiActionStatsUpdate = (maxIterations: number) => {
+    let iterations = 0;
+    let shouldContinue = true;
+    
+    while (shouldContinue && iterations < maxIterations) {
+      // Run a single iteration of stat updates
+      const result = applyRandomStatUpdate();
+      iterations++;
+      
+      // Check if we should continue
+      shouldContinue = result.shouldContinue;
+    }
+    
+    // Save after batch updates
+    saveGameState();
+  };
+
+  // Define the missing applyRandomStatUpdate function
+  const applyRandomStatUpdate = () => {
+    // Simple implementation that just returns shouldContinue: false
+    return { shouldContinue: false };
   };
 
   // Provide context values
@@ -470,7 +526,7 @@ export const BraydenProvider: React.FC<{ children: React.ReactNode }> = ({ child
         earnMoney,
         setStats,
         setUpgrades,
-        saveData
+        saveData: saveGameState
   };
 
   return (

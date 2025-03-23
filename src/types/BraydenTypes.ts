@@ -12,6 +12,7 @@ export interface BraydenStats {
   streak: number; // Days in a row played
   health: number; // New health stat
   isDead: boolean; // Death state
+  lastDailyBonus?: number; // Timestamp of last daily bonus
 }
 
 export const DEFAULT_STATS: BraydenStats = {
